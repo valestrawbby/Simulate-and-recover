@@ -1,9 +1,10 @@
 import numpy as np
+from scipy.optimize import curve_fit
 
 # Define parameter ranges
-BOUNDARY_RANGE = (0.5, 2)
-DRIFT_RANGE = (0.5, 2)
-NONDECISION_RANGE = (0.1, 0.5)
+BOUNDARY_RANGE = (0.5, 2)  # Boundary separation (a)
+DRIFT_RANGE = (0.5, 2)     # Drift rate (v)
+NONDECISION_RANGE = (0.1, 0.5)  # Non-decision time (t)
 
 def generate_parameters():
     """Randomly generate EZ diffusion model parameters within the given ranges."""
@@ -14,17 +15,21 @@ def generate_parameters():
 
 def simulate_data(a, v, t, N):
     """Simulate reaction times based on the EZ diffusion model for N trials."""
-    rt = a / v + t + np.random.normal(0, 0.1, N)  # Add noise
+    rt = a / v + t + np.random.normal(0, 0.1, N)  # Add noise to the data
     return rt
 
+def ez_diffusion_model(rt, a, v, t):
+    """EZ Diffusion model equation used for curve fitting."""
+    return a / v + t + np.random.normal(0, 0.1, len(rt))  # Simulate reaction times
+
 def recover_parameters(rt):
-    """Recover parameters from reaction time data using the EZ model equations."""
-    mean_rt = np.mean(rt)
-    std_rt = np.std(rt)
+    """Recover parameters from reaction time data using curve fitting."""
+    # Initial guess for parameters (boundary separation, drift rate, non-decision time)
+    initial_guess = [1, 1, 0.2]
     
-    v_hat = 1 / mean_rt  # Approximation of drift rate
-    a_hat = std_rt * 2    # Approximation of boundary separation
-    t_hat = mean_rt - (a_hat / v_hat)  # Approximation of non-decision time
+    # Fit the reaction time data to the EZ model using curve fitting
+    popt, _ = curve_fit(ez_diffusion_model, np.zeros(len(rt)), rt, p0=initial_guess)
+    a_hat, v_hat, t_hat = popt
     
     return a_hat, v_hat, t_hat
 
@@ -48,6 +53,10 @@ def run_simulation(N, iterations=1000):
     avg_bias = np.mean(biases, axis=0)
     avg_squared_error = np.mean(squared_errors, axis=0)
 
+    # Save the results to a file
+    with open(f"results_N_{N}.txt", "a") as file:
+        file.write(f"N = {N}: Bias = {avg_bias}, Squared Error = {avg_squared_error}\n")
+
     return avg_bias, avg_squared_error
 
 if __name__ == "__main__":
@@ -56,3 +65,23 @@ if __name__ == "__main__":
 
     for N, (bias, error) in results.items():
         print(f"N = {N}: Bias = {bias}, Squared Error = {error}")
+
+import os
+
+# Ensure the "results" directory exists
+RESULTS_DIR = "../results"
+os.makedirs(RESULTS_DIR, exist_ok=True)
+
+# Path for the output file
+output_file = os.path.join(RESULTS_DIR, "simulation_results.txt")
+
+# Open the file and write results
+with open(output_file, "w") as f:
+    for N, (bias, error) in results.items():
+        result_str = f"N = {N}: Bias = {bias}, Squared Error = {error}\n"
+        print(result_str)  # Still prints to the terminal
+        f.write(result_str)  # Saves to file
+
+print(f"Results saved to {output_file}")
+
+
